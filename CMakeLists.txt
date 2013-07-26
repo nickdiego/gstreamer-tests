@@ -40,7 +40,6 @@ include_directories(
   ${GSTREAMER-PBUTILS_INCLUDE_DIRS}
   ${GSTREAMER-FFT_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}
-  /home/nick/projects/webkit-nix/src/nix/Source/WTF
 )
 
 link_directories(
@@ -49,11 +48,12 @@ link_directories(
   ${GSTREAMER-AUDIO_LIBRARY_DIRS}
   ${GSTREAMER-PBUTILS_LIBRARY_DIRS}
   ${GSTREAMER-FFT_LIBRARY_DIRS}
-  /home/nick/projects/webkit-nix/build/nix-build-desktop/Debug/lib
 )
 
 set(inputtest_SOURCES
   GStreamerUtilities.cpp
+  GOwnPtr.cpp
+  GRefPtr.cpp
   AudioFileReaderGStreamer.cpp
 )
 
@@ -63,12 +63,12 @@ set(inputtest_LIBRARIES
   ${GSTREAMER-AUDIO_LIBRARIES}
   ${GSTREAMER-PBUTILS_LIBRARIES}
   ${GSTREAMER-FFT_LIBRARIES}
-  WTF
+    
+  pthread
+  ${GLIB_LIBRARIES}
+  ${GLIB_GIO_LIBRARIES}
+  ${GLIB_GOBJECT_LIBRARIES}
 )
-
-#add_definitions(-DWTF_USE_GLIB=1
-#    -DWTF_EXPORT_PRIVATE
-#    -DWTF_EXPORT)
 
 add_executable(inputtest ${inputtest_SOURCES})
 target_link_libraries(inputtest ${inputtest_LIBRARIES})

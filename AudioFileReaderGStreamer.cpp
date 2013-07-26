@@ -11,13 +11,16 @@
 #include <gst/audio/multichannel.h>
 #endif
 
-#define WTF_EXPORT
+/*#define WTF_EXPORT
 #define WTF_EXPORT_PRIVATE
 #define WTF_USE_GLIB 1
 #include <wtf/Platform.h>
 #include <wtf/gobject/GOwnPtr.h>
 #include <wtf/gobject/GRefPtr.h>
+*/
 
+#include "GOwnPtr.h"
+#include "GRefPtr.h"
 #include "GStreamerUtilities.h"
 
 #ifdef GST_API_VERSION_1

@@ -54,7 +54,7 @@ set(inputtest_SOURCES
   GStreamerUtilities.cpp
   GOwnPtr.cpp
   GRefPtr.cpp
-  AudioFileReaderGStreamer.cpp
+  AudioStreamChannelsReader.cpp
 )
 
 set(inputtest_LIBRARIES

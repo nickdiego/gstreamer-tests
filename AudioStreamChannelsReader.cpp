@@ -1,3 +1,22 @@
+/*
+ *  Copyright (C) 2011, 2012 Igalia S.L
+ *  Copyright (C) 2011 Zan Dobersek  <zandobersek@gmail.com>
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
 #include <cassert>
 #include <cstdio>
 
@@ -11,14 +30,6 @@
 #include <gst/audio/multichannel.h>
 #endif
 
-/*#define WTF_EXPORT
-#define WTF_EXPORT_PRIVATE
-#define WTF_USE_GLIB 1
-#include <wtf/Platform.h>
-#include <wtf/gobject/GOwnPtr.h>
-#include <wtf/gobject/GRefPtr.h>
-*/
-
 #include "GOwnPtr.h"
 #include "GRefPtr.h"
 #include "GStreamerUtilities.h"
@@ -28,8 +39,6 @@ static const char* gDecodebinName = "decodebin";
 #else
 static const char* gDecodebinName = "decodebin2";
 #endif
-
-#define TRACE(...) fprintf(stderr, __VA_ARGS__)
 
 GstBus* webkitGstPipelineGetBus(GstPipeline* pipeline)
 {
@@ -59,12 +68,12 @@ GstCaps* getGstAudioCaps(int channels, float sampleRate)
 }
 
 
-class AudioFileReader {
-//    WTF_MAKE_NONCOPYABLE(AudioFileReader);
+class AudioStreamChannelsReader {
+
 public:
-    AudioFileReader(const char* filePath);
-    AudioFileReader(const void* data, size_t dataSize);
-    ~AudioFileReader();
+    AudioStreamChannelsReader(const char* filePath);
+    AudioStreamChannelsReader(const void* data, size_t dataSize);
+    ~AudioStreamChannelsReader();
 
     void createBus(float sampleRate, bool mixToMono);
 
@@ -130,40 +139,40 @@ private:
 static GstFlowReturn onAppsinkPullRequiredCallback(GstAppSink* sink, gpointer userData)
 {
 #ifdef GST_API_VERSION_1
-    return static_cast<AudioFileReader*>(userData)->handleSample(sink);
+    return static_cast<AudioStreamChannelsReader*>(userData)->handleSample(sink);
 #else
-    return static_cast<AudioFileReader*>(userData)->handleBuffer(sink);
+    return static_cast<AudioStreamChannelsReader*>(userData)->handleBuffer(sink);
 #endif
 }
 
-gboolean messageCallback(GstBus*, GstMessage* message, AudioFileReader* reader)
+gboolean messageCallback(GstBus*, GstMessage* message, AudioStreamChannelsReader* reader)
 {
     return reader->handleMessage(message);
 }
 
-static void onGStreamerDeinterleavePadAddedCallback(GstElement*, GstPad* pad, AudioFileReader* reader)
+static void onGStreamerDeinterleavePadAddedCallback(GstElement*, GstPad* pad, AudioStreamChannelsReader* reader)
 {
     reader->handleNewDeinterleavePad(pad);
 }
 
-static void onGStreamerDeinterleaveReadyCallback(GstElement*, AudioFileReader* reader)
+static void onGStreamerDeinterleaveReadyCallback(GstElement*, AudioStreamChannelsReader* reader)
 {
     reader->deinterleavePadsConfigured();
 }
 
-static void onGStreamerDecodebinPadAddedCallback(GstElement*, GstPad* pad, AudioFileReader* reader)
+static void onGStreamerDecodebinPadAddedCallback(GstElement*, GstPad* pad, AudioStreamChannelsReader* reader)
 {
     reader->plugDeinterleave(pad);
 }
 
 gboolean enteredMainLoopCallback(gpointer userData)
 {
-    AudioFileReader* reader = reinterpret_cast<AudioFileReader*>(userData);
+    AudioStreamChannelsReader* reader = reinterpret_cast<AudioStreamChannelsReader*>(userData);
     reader->decodeAudioForBusCreation();
     return FALSE;
 }
 
-AudioFileReader::AudioFileReader(const char* filePath)
+AudioStreamChannelsReader::AudioStreamChannelsReader(const char* filePath)
     : m_data(0)
     , m_dataSize(0)
     , m_filePath(filePath)
@@ -172,7 +181,7 @@ AudioFileReader::AudioFileReader(const char* filePath)
 {
 }
 
-AudioFileReader::AudioFileReader(const void* data, size_t dataSize)
+AudioStreamChannelsReader::AudioStreamChannelsReader(const void* data, size_t dataSize)
     : m_data(data)
     , m_dataSize(dataSize)
     , m_filePath(0)
@@ -181,7 +190,7 @@ AudioFileReader::AudioFileReader(const void* data, size_t dataSize)
 {
 }
 
-AudioFileReader::~AudioFileReader()
+AudioStreamChannelsReader::~AudioStreamChannelsReader()
 {
     if (m_pipeline) {
         GRefPtr<GstBus> bus = webkitGstPipelineGetBus(GST_PIPELINE(m_pipeline));
@@ -213,7 +222,7 @@ AudioFileReader::~AudioFileReader()
 }
 
 #ifdef GST_API_VERSION_1
-GstFlowReturn AudioFileReader::handleSample(GstAppSink* sink)
+GstFlowReturn AudioStreamChannelsReader::handleSample(GstAppSink* sink)
 {
     GstSample* sample = gst_app_sink_pull_sample(sink);
     if (!sample)
@@ -256,7 +265,7 @@ GstFlowReturn AudioFileReader::handleSample(GstAppSink* sink)
 #endif
 
 #ifndef GST_API_VERSION_1
-GstFlowReturn AudioFileReader::handleBuffer(GstAppSink* sink)
+GstFlowReturn AudioStreamChannelsReader::handleBuffer(GstAppSink* sink)
 {
     static int leftBuffersCount = 0;
     static int rightBuffersCount = 0;
@@ -316,7 +325,7 @@ GstFlowReturn AudioFileReader::handleBuffer(GstAppSink* sink)
 }
 #endif
 
-gboolean AudioFileReader::handleMessage(GstMessage* message)
+gboolean AudioStreamChannelsReader::handleMessage(GstMessage* message)
 {
     GOwnPtr<GError> error;
     GOwnPtr<gchar> debug;
@@ -358,7 +367,7 @@ gboolean AudioFileReader::handleMessage(GstMessage* message)
     return TRUE;
 }
 
-void AudioFileReader::handleNewDeinterleavePad(GstPad* pad)
+void AudioStreamChannelsReader::handleNewDeinterleavePad(GstPad* pad)
 {
     // A new pad for a planar channel was added in deinterleave. Plug
     // in an appsink so we can pull the data from each
@@ -392,14 +401,14 @@ void AudioFileReader::handleNewDeinterleavePad(GstPad* pad)
     gst_element_set_state(sink, GST_STATE_READY);
 }
 
-void AudioFileReader::deinterleavePadsConfigured()
+void AudioStreamChannelsReader::deinterleavePadsConfigured()
 {
     // All deinterleave src pads are now available, let's roll to
     // PLAYING so data flows towards the sinks and it can be retrieved.
     gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
 }
 
-void AudioFileReader::plugDeinterleave(GstPad* pad)
+void AudioStreamChannelsReader::plugDeinterleave(GstPad* pad)
 {
     printf("Pluging deinterleave...");
 
@@ -435,7 +444,7 @@ void AudioFileReader::plugDeinterleave(GstPad* pad)
     gst_element_sync_state_with_parent(m_deInterleave.get());
 }
 
-void AudioFileReader::buildInputPipeline()
+void AudioStreamChannelsReader::buildInputPipeline()
 {
     // A decodebin pad was added, plug in a deinterleave element to
     // separate each planar channel. Sub pipeline looks like
@@ -463,7 +472,7 @@ void AudioFileReader::buildInputPipeline()
     gst_element_link_pads_full(audioConvert, "src", audioResample, "sink", GST_PAD_LINK_CHECK_NOTHING);
     gst_element_link_pads_full(audioResample, "src", capsFilter, "sink", GST_PAD_LINK_CHECK_NOTHING);
     gst_element_link_pads_full(capsFilter, "src", m_deInterleave.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
-    
+
     gst_element_sync_state_with_parent(source);
     gst_element_sync_state_with_parent(audioConvert);
     gst_element_sync_state_with_parent(audioResample);
@@ -472,7 +481,7 @@ void AudioFileReader::buildInputPipeline()
     gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
 }
 
-void AudioFileReader::decodeAudioForBusCreation()
+void AudioStreamChannelsReader::decodeAudioForBusCreation()
 {
     // Build the pipeline (giostreamsrc | filesrc) ! decodebin2
     // A deinterleave element is added once a src pad becomes available in decodebin.
@@ -487,7 +496,7 @@ void AudioFileReader::decodeAudioForBusCreation()
     if (m_filePath) {
         source = gst_element_factory_make("filesrc", 0);
         g_object_set(source, "location", m_filePath, NULL);
-    
+
         m_decodebin = gst_element_factory_make(gDecodebinName, "decodebin");
         g_signal_connect(m_decodebin.get(), "pad-added", G_CALLBACK(onGStreamerDecodebinPadAddedCallback), this);
 
@@ -500,8 +509,7 @@ void AudioFileReader::decodeAudioForBusCreation()
 
 }
 
-//PassRefPtr<AudioBus> AudioFileReader::createBus(float sampleRate, bool mixToMono)
-void AudioFileReader::createBus(float sampleRate, bool mixToMono)
+void AudioStreamChannelsReader::createBus(float sampleRate, bool mixToMono)
 {
     m_sampleRate = sampleRate;
 
@@ -528,7 +536,7 @@ void AudioFileReader::createBus(float sampleRate, bool mixToMono)
     g_main_loop_run(m_loop.get());
     g_main_context_pop_thread_default(context.get());
     */
-    
+
     m_loop = adoptGRef(g_main_loop_new(NULL, FALSE));
     enteredMainLoopCallback(this);
     g_main_loop_run(m_loop.get());
@@ -551,7 +559,7 @@ void AudioFileReader::createBus(float sampleRate, bool mixToMono)
 
 void createBusFromAudioFile(const char* filePath, bool mixToMono, float sampleRate)
 {
-    return AudioFileReader(filePath).createBus(sampleRate, mixToMono);
+    return AudioStreamChannelsReader(filePath).createBus(sampleRate, mixToMono);
 }
 
 int main(int argc, char **argv)
@@ -561,7 +569,7 @@ int main(int argc, char **argv)
     if (argc == 2) {
         filePath = argv[1];
     }
-    
+
     if (!initializeGStreamer()) {
         fprintf(stderr, "Error trying to initialize gstreamer :(\n");
         return -1;
